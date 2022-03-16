@@ -3,7 +3,7 @@ local line_break = '----------'
 local double_space = '\n\n'
 local progress_increment = '||||'
 local progress_space = '-'
---local end_date = {3, 22, 2022}
+local end_date = {3, 22, 2022}
 
 local rep_needed = {
     ['03/14'] = 5825,
@@ -232,7 +232,8 @@ local set_unity_display = function()
     local unity_tracker = reputation.current - rep_needed[aura_env.today]
     if unity_tracker < 0 then 
         unity_tracker = set_color(unity_tracker, colors.red) 
-    else set_color(unity_tracker, colors.light_green) 
+    else 
+        unity_tracker = '+' .. set_color(unity_tracker, colors.light_green) 
     end
     
     set_display_line(set_color('Unity: ', colors.blue) .. aura_env.days_till_double .. ' days\n')
@@ -299,3 +300,4 @@ end
 
 
 aura_env.update_display()
+
