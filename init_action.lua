@@ -3,7 +3,6 @@ local line_break = '----------'
 local double_space = '\n\n'
 local progress_increment = '||||'
 local progress_space = '-'
-local end_date = {3, 22, 2022}
 
 local rep_needed = {
     ['03/14'] = 5825,
@@ -109,8 +108,7 @@ local objectives = {
             {id = 183516,questId = 65580,reputation = 10,name = 'The Engulfer'},                        
             {id = 183764,questId = 65251,reputation = 10,name = 'Zatojin'},            
         }
-    },
-    
+    },    
     {name = 'rotatingMobs', displayName = "Notable Rares", subCount = true, limit = 5, group_complete = false,
         quests = {
             {id = 179006,questId = 65552,reputation = 15,name = 'Akkaris'},
@@ -186,14 +184,11 @@ local set_display_line = function(add_line)
     aura_env.text = aura_env.text .. add_line 
 end
 
-local add_mob_list = function(objective)    
-    -- if not objective.group_complete then
-        -- set_display_line('\n' .. line_break)
-    -- end
+local add_mob_list = function(objective)        
     if aura_env.config.addSpacers then
         set_display_line('\n' .. line_break)
     end
-
+    
     for _, quest in ipairs(objective.quests) do                          
         local is_complete = get_quest_complete(quest.questId)
         
@@ -206,8 +201,7 @@ local add_mob_list = function(objective)
         else
             local quest_name = is_complete and set_quest_complete(quest.name) or quest.name     
             set_display_line('\n ' .. quest_name)              
-        end        
-        
+        end                
     end
 end
 
@@ -230,11 +224,14 @@ local set_reputation_display = function(reputation)
 end
 
 
-local set_unity_data = function()
-    --local today = date("%m/%d/%y %H:%M:%S")
+local set_unity_data = function()    
+    local end_date = time{ year = 2022, month = 3, day = 22 }    
     local month, day, year = date("%m"), date("%d"), date("%y")
+    local unity_month, unity_day, unity_year = date("%m", end_date), date("%d", end_date), date("%y", end_date)
+    
     aura_env.today = month .. '/' .. day
-    aura_env.days_till_double = 22-day   
+    aura_env.days_till_double = unity_day-day           
+    aura_env.unity_released = day > unity_day or month > unity_month or year > unity_year        
 end
 
 local set_unity_display = function()        
@@ -245,19 +242,29 @@ local set_unity_display = function()
         unity_tracker = '+' .. set_color(unity_tracker, colors.light_green) 
     end
     
-    set_display_line(set_color('Unity: ', colors.blue) .. aura_env.days_till_double .. ' days\n')
-    set_display_line(' Target: '.. rep_needed[aura_env.today] .. '\n')
+    set_display_line(set_color('Unity: ', colors.blue))
+    
+    if not aura_env.unity_released then        
+        if aura_env.days_till_double == 1 then
+            set_display_line('Tomorrow')
+        elseif aura_env.days_till_double == 0 then
+            set_display_line('Today')
+        else
+            set_display_line(aura_env.days_till_double .. ' days')
+        end        
+    end
+    
+    set_display_line('\n Target: '.. rep_needed[aura_env.today] .. '\n')
     set_display_line(' At: '.. unity_tracker .. '\n')
 end
 
 
 local set_rares_display = {
-    [1] = function(writeLine, objective) set_display_line('\n' .. writeLine) add_mob_list(objective)   end, -- All
-    [2] = function(writeLine, objective) set_display_line('\n' .. writeLine) end,                            -- Count Only 
-    [3] = function(writeLine, objective) add_mob_list(objective) end,                                        -- List Only
-    [4] = function(writeLine, objective) end,                                                                -- None
+    [1] = function(writeLine, objective) set_display_line('\n' .. writeLine) add_mob_list(objective) end, -- All
+    [2] = function(writeLine, objective) set_display_line('\n' .. writeLine) end,                         -- Count Only 
+    [3] = function(writeLine, objective) add_mob_list(objective) end,                                     -- List Only
+    [4] = function(writeLine, objective) end,                                                             -- None
 }
-
 
 
 -- Run -- 
@@ -299,7 +306,7 @@ aura_env.update_display = function()
         objective.name == 'worldBoss' and aura_env.config.showWorldBoss == true then 
             set_display_line('\n' .. writeLine) 
         elseif objective.name == 'rareMobs' then 
-        objective.group_complete = is_complete
+            objective.group_complete = is_complete
             set_rares_display[aura_env.config.showRares](writeLine, objective) 
         elseif objective.name == 'rotatingMobs' then 
             objective.group_complete = is_complete
@@ -309,3 +316,4 @@ aura_env.update_display = function()
 end
 
 aura_env.update_display()
+
