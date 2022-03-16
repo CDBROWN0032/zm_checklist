@@ -85,7 +85,7 @@ local objectives = {
             {id = 182466,questId = 65143,reputation = 500,name = 'Antros'},
         }
     },
-    {name = 'rareMobs', displayName = "Rares", subCount = true, limit = 0,
+    {name = 'rareMobs', displayName = "Rares", subCount = true, limit = 0, group_complete = false,
         quests = {           
             {id = 183953,questId = 65273,reputation = 10,name = 'Corrupted Architect'},
             {id = 180917,questId = 64716,reputation = 10,name = 'Destabilized Core'},            
@@ -111,7 +111,7 @@ local objectives = {
         }
     },
     
-    {name = 'rotatingMobs', displayName = "Notable Rares", subCount = true, limit = 5,
+    {name = 'rotatingMobs', displayName = "Notable Rares", subCount = true, limit = 5, group_complete = false,
         quests = {
             {id = 179006,questId = 65552,reputation = 15,name = 'Akkaris'},
             {id = 183596,questId = 65553,reputation = 10,name = 'Chitali the Eldest'},
@@ -187,18 +187,27 @@ local set_display_line = function(add_line)
 end
 
 local add_mob_list = function(objective)    
-    aura_env.text = aura_env.text .. '\n' .. line_break
+    -- if not objective.group_complete then
+        -- set_display_line('\n' .. line_break)
+    -- end
+    if aura_env.config.addSpacers then
+        set_display_line('\n' .. line_break)
+    end
+
     for _, quest in ipairs(objective.quests) do                          
         local is_complete = get_quest_complete(quest.questId)
         
-        if aura_env.config.hideCompletedMobs == true then
+        if aura_env.config.hideCompletedMobs then
             if is_complete == false then 
-                set_display_line('\n ' .. quest.name)                 
+                if not objective.group_complete then
+                    set_display_line('\n ' .. quest.name)                 
+                end
             end
         else
             local quest_name = is_complete and set_quest_complete(quest.name) or quest.name     
             set_display_line('\n ' .. quest_name)              
         end        
+        
     end
 end
 
@@ -241,11 +250,12 @@ local set_unity_display = function()
     set_display_line(' At: '.. unity_tracker .. '\n')
 end
 
+
 local set_rares_display = {
-    [1] = function(writeLine, objective) set_display_line('\n' .. writeLine) add_mob_list(objective)   end,
-    [2] = function(writeLine, objective) set_display_line('\n' .. writeLine) end,
-    [3] = function(writeLine, objective) add_mob_list(objective) end,
-    [4] = function(writeLine, objective) end,
+    [1] = function(writeLine, objective) set_display_line('\n' .. writeLine) add_mob_list(objective)   end, -- All
+    [2] = function(writeLine, objective) set_display_line('\n' .. writeLine) end,                            -- Count Only 
+    [3] = function(writeLine, objective) add_mob_list(objective) end,                                        -- List Only
+    [4] = function(writeLine, objective) end,                                                                -- None
 }
 
 
@@ -273,8 +283,9 @@ aura_env.update_display = function()
     for _, objective in ipairs(objectives) do
         
         local available_max = objective.limit == 0 and #objective.quests or objective.limit
-        local completed  = get_completed_quests(objective)          
-        if completed == available_max then
+        local completed  = get_completed_quests(objective)    
+        local is_complete = completed == available_max
+        if is_complete then
             completed, available_max = set_group_complete(completed, available_max)
         end
         
@@ -288,16 +299,13 @@ aura_env.update_display = function()
         objective.name == 'worldBoss' and aura_env.config.showWorldBoss == true then 
             set_display_line('\n' .. writeLine) 
         elseif objective.name == 'rareMobs' then 
+        objective.group_complete = is_complete
             set_rares_display[aura_env.config.showRares](writeLine, objective) 
         elseif objective.name == 'rotatingMobs' then 
+            objective.group_complete = is_complete
             set_rares_display[aura_env.config.showRotating](writeLine, objective)                                    
         end        
     end
 end
 
-
---print(C_QuestLog.IsOnMap(64641))
-
-
 aura_env.update_display()
-
