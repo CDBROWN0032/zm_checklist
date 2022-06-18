@@ -27,7 +27,7 @@ local colors = {
 
 local englightenedRepId = 2478
 local reputation = {
-    name = 'rep', displayName = 'Rep', level_name = '', current = 0, level_max = 0, percent_complete = 0, percent_complete_rounded = 0    
+    name = 'rep', displayName = 'Rep', level_name = '', current = 0, level_max = 0, percent_complete = 0, percent_complete_rounded = 0, is_paragon = false    
 }
 
 local get_standing = {
@@ -127,21 +127,50 @@ local objectives = {
 }
 
 -- Functions -- 
+local get_hexcolor = function(color)                   
+    local r = color[1]
+    local g = color[2]
+    local b = color[3]
+    local a = color[4]
+    
+    return string.format("%02x%02x%02x%02x", 
+        math.floor(a*255),
+        math.floor(r*255),
+        math.floor(g*255),
+        math.floor(b*255))
+end
+
+local get_rep_color = function()               
+    return get_hexcolor(aura_env.config.setRepColor)
+end
+
+local get_headers_color = function()               
+    return get_hexcolor(aura_env.config.setHeadersColor)
+end
+
+local get_mob_color = function()               
+    return get_hexcolor(aura_env.config.setMobColor)
+end
+
+local get_groups_color = function()               
+    return get_hexcolor(aura_env.config.setGroupColor)
+end
+
 local set_color = function(text, color)
     return WrapTextInColorCode(text, color) end
 
 local set_header_color = function(name)
-    return set_color(name, colors.dark_green) end
+    return set_color(name, get_headers_color()) end
 
 local get_quest_complete = function(questId)
     return C_QuestLog.IsQuestFlaggedCompleted(questId) end
 
 local set_quest_complete = function(name)
-    return set_color(name, colors.light_green) end
+    return set_color(name, get_mob_color()) end
 
 local set_group_complete = function(completed, max)
-    completed = set_color(completed, colors.pink)
-    max = set_color(max, colors.pink)
+    completed = set_color(completed, get_groups_color())
+    max = set_color(max, get_groups_color())
     return completed, max    
 end
 
@@ -163,7 +192,7 @@ local build_progress_bar = function(percentage_complete)
     
     while i <= 20 do
         if i <= progress_increments then            
-            progress_bar = progress_bar .. set_quest_complete(progress_increment)
+            progress_bar = progress_bar .. set_color(progress_increment, get_rep_color())
         else
             progress_bar = progress_bar .. progress_space
         end        
@@ -193,7 +222,7 @@ local add_mob_list = function(objective)
         local is_complete = get_quest_complete(quest.questId)
         
         if aura_env.config.hideCompletedMobs then
-            if is_complete == false then 
+            if not is_complete then 
                 if not objective.group_complete then
                     set_display_line('\n ' .. quest.name)                 
                 end
@@ -204,11 +233,21 @@ local add_mob_list = function(objective)
         end                
     end
 end
+	
+local set_reputation_data = function(reputation)		
+	reputation.is_paragon = C_Reputation.IsFactionParagon(englightenedRepId)
+	if repputation.is_paragon then 
+		local currentValue, threshhold, _, hasRewardPending = C_Reputation.GetFactionParagonInfo(enlightenedRepId)
+		reputation.level_name = 'Paragon'
+		reputation.level_max = currentValue + threshhold
+		reputation.current = current
+	else		
+		reputation.level_name, reputation.level_max  = get_standing[standing]()
+		reputation.current = current - minimum
+	end
+	
+    local _, _, standing, minimum, _, current = GetFactionInfoByID(englightenedRepId)    	
 
-local set_reputation_data = function(reputation)
-    local _, _, standing, minimum, _, current = GetFactionInfoByID(englightenedRepId)    
-    reputation.level_name, reputation.level_max  = get_standing[standing]()
-    reputation.current = current - minimum
     reputation.percent_complete = (reputation.current / reputation.level_max) * 100
     reputation.percent_complete_rounded = (math.floor(reputation.percent_complete / 5) * 5)
 end
@@ -218,9 +257,9 @@ local set_reputation_display = function(reputation)
     set_display_line('\n'.. set_header_color(reputation.displayName) .. ':\n')    
     
     -- body -- 
-    set_display_line(' ' .. reputation.level_name .. '\n')
-    set_display_line(' ' .. build_progress_bar(reputation.percent_complete_rounded) .. '\n')
+    set_display_line(' ' .. reputation.level_name .. '\n')    
     set_display_line(' ' .. reputation.current .. '/' .. reputation.level_max .. '\n')   
+    set_display_line(' ' .. build_progress_bar(reputation.percent_complete_rounded) .. '\n')
 end
 
 
@@ -242,7 +281,7 @@ local set_unity_display = function()
         unity_tracker = '+' .. set_color(unity_tracker, colors.light_green) 
     end
     
-    set_display_line(set_color('Unity: ', colors.blue))
+    set_display_line(set_color('Unity: ', get_headers_color()))
     
     if not aura_env.unity_released then        
         if aura_env.days_till_double == 1 then
@@ -267,24 +306,25 @@ local set_rares_display = {
 }
 
 
+
 -- Run -- 
-aura_env.update_display = function()
+aura_env.update_display = function()    
     
     -- Base --
     set_display_base()  
     
-    set_reputation_data(reputation)    
-    set_unity_data()    
+    set_reputation_data(reputation)
+    set_unity_data()        
     
-    
-    if aura_env.config.showUnity == true then
-        set_unity_display()            
+    if not aura_env.unity_released then       
+        if aura_env.config.showUnity then
+            set_unity_display()            
+        end
     end
     
-    if aura_env.config.showRep == true then
+    if aura_env.config.showRep then
         set_reputation_display(reputation)    
-    end
-    
+    end    
     
     -- Set/Display Quests -- 
     for _, objective in ipairs(objectives) do
@@ -297,13 +337,11 @@ aura_env.update_display = function()
         end
         
         local writeLine = set_header_color(objective.displayName) .. ': ' .. completed .. '/' .. available_max                
-        if objective.subCount then set_display_line('\n') end                        
+        if objective.subCount then set_display_line('\n') end                                
         
-        
-        
-        if objective.name == 'dailyQuests' and aura_env.config.showDailies == true or               
-        objective.name == 'weeklyQuests' and aura_env.config.showWeekly == true or        
-        objective.name == 'worldBoss' and aura_env.config.showWorldBoss == true then 
+        if objective.name == 'dailyQuests' and aura_env.config.showDailies or               
+        objective.name == 'weeklyQuests' and aura_env.config.showWeekly or        
+        objective.name == 'worldBoss' and aura_env.config.showWorldBoss then 
             set_display_line('\n' .. writeLine) 
         elseif objective.name == 'rareMobs' then 
             objective.group_complete = is_complete
